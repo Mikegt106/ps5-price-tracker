@@ -140,3 +140,66 @@ print(
     f"Successfully inserted {len(upload_rows)} rows into "
     f"Supabase at {scrape_time}"
 )
+
+# ============================================================
+# BUSINESS ALERT
+# Alert when the average NEW price changes by more than 10%
+# compared with the previous scrape
+# ============================================================
+
+try:
+    # Average price of the current scrape
+    current_avg = df["new_price"].mean()
+
+    # Get historical rows from Supabase
+    response = (
+        supabase.table("ps5_prices")
+        .select("new_price, scraped_at")
+        .order("scraped_at", desc=True)
+        .execute()
+    )
+
+    historical = pd.DataFrame(response.data)
+
+    if not historical.empty:
+        historical["scraped_at"] = pd.to_datetime(historical["scraped_at"])
+
+        # Find the different scrape moments
+        scrape_times = sorted(
+            historical["scraped_at"].dropna().unique(),
+            reverse=True
+        )
+
+        # We need at least 2 scrape runs to compare
+        if len(scrape_times) >= 2:
+            previous_time = scrape_times[1]
+
+            previous_rows = historical[
+                historical["scraped_at"] == previous_time
+            ]
+
+            previous_avg = previous_rows["new_price"].mean()
+
+            # Calculate percentage change
+            change_pct = (
+                (current_avg - previous_avg) / previous_avg
+            ) * 100
+
+            print(f"Current average new price: €{current_avg:.2f}")
+            print(f"Previous average new price: €{previous_avg:.2f}")
+            print(f"Price change: {change_pct:+.2f}%")
+
+            # Business alert
+            if abs(change_pct) >= 10:
+                print(
+                    f"⚠️ BUSINESS ALERT: Average PS5 game price "
+                    f"changed by {change_pct:+.2f}%!"
+                )
+            else:
+                print("✅ No alert: price change is below 10%.")
+
+        else:
+            print("Not enough historical scrapes for price comparison yet.")
+
+except Exception as e:
+    print(f"Could not calculate business alert: {e}")
