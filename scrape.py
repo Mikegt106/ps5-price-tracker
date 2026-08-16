@@ -162,7 +162,7 @@ try:
     historical = pd.DataFrame(response.data)
 
     if not historical.empty:
-        historical["scraped_at"] = pd.to_datetime(historical["scraped_at"])
+        historical["scraped_at"] = pd.to_datetime(historical["scraped_at"],format="mixed",utc=True)
 
         # Find the different scrape moments
         scrape_times = sorted(
